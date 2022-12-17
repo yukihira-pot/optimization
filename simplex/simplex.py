@@ -57,8 +57,6 @@ class SimplexSolver:
 
         # 1次独立な列ベクトルを m 本選ぶ
         for i in range(self.n-1, -1, -1):  # ここどうにかしたい 最後は正順にする
-            if len(basic_vars_cols) >= self.m:
-                break
             try:
                 rank_basis_matrix = np.linalg.matrix_rank(self.basis_matrix)
             except:
@@ -78,10 +76,12 @@ class SimplexSolver:
         # 基底行列が単位行列になるようにする
         basis_matrix_inv = np.linalg.inv(self.basis_matrix)
         self.A = np.concatenate([
-            np.eye(self.m, self.m), # どうせ逆行列かけたら単位行列になるので
-            basis_matrix_inv @ self.non_basis_matrix], # こっちは普通に逆行列かける
+                np.eye(self.m, self.m), # どうせ逆行列かけたら単位行列になるので
+                basis_matrix_inv @ self.non_basis_matrix # こっちは普通に逆行列かける
+            ], 
             axis=1
         )
+        print("A...", self.A)
         self.b = basis_matrix_inv @ self.b # 普通に逆行列かける
         # 基底変数として選んだインデックスを i1, i2, i3, ...
         # 非基底変数として選んだインデックスを j1, j2, j3, ...
@@ -103,7 +103,7 @@ class SimplexSolver:
         """
         return np.all(self.c >= 0)
 
-    def next_basic_var(self) -> int:
+    def get_next_basic_var(self) -> int:
         """
         Notes
         --------
@@ -112,12 +112,16 @@ class SimplexSolver:
         """
         return np.argmin(self.c)
 
-    def next_nonbasic_var(self) -> int:
+    def get_next_nonbasic_var(self) -> int:
         """
         Notes
         --------
-        定数部 b を次の基底変数の係数で割り、
+        定数部 b を次の基底変数の係数で割り、その結果のうち最小の正のインデックスを返す
         """
+        next_basic_var: int = self.get_next_basic_var()
+        next_basic_var_coef: np.array = self.A[:, next_basic_var]
+        b_next_basic_var_coef = self.b / next_basic_var_coef
+        return np.argmin(b_next_basic_var_coef[b_next_basic_var_coef > 0])
 
 if __name__ == "__main__":
     A = np.array([[5, 2, 1, 0, 0], [1, 2, 0, 1, 0], [5, -4, 0, 0, 1]])
@@ -127,5 +131,6 @@ if __name__ == "__main__":
     simplexsolver.determine_basic_vars()
     # print(simplexsolver.is_optimized())
     # print(simplexsolver.basis_matrix)
-    print(simplexsolver.A)
-    print(simplexsolver.next_basic_var())
+    # print(simplexsolver.A)
+    simplexsolver.get_next_basic_var()
+    print(simplexsolver.get_next_nonbasic_var())
