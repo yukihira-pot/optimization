@@ -36,6 +36,7 @@ class SimplexSolver:
     """
 
     def __init__(self, A: np.array, b: np.array, c: np.array) -> None:
+        self.return_val = 0 # 関数値
         self.A, self.b, self.c = A, b, c
         self.m, self.n = A.shape
         self.basis_matrix = np.empty((self.m, 0))
@@ -81,7 +82,6 @@ class SimplexSolver:
             ], 
             axis=1
         )
-        print("A...", self.A)
         self.b = basis_matrix_inv @ self.b # 普通に逆行列かける
         # 基底変数として選んだインデックスを i1, i2, i3, ...
         # 非基底変数として選んだインデックスを j1, j2, j3, ...
@@ -121,16 +121,54 @@ class SimplexSolver:
         next_basic_var: int = self.get_next_basic_var()
         next_basic_var_coef: np.array = self.A[:, next_basic_var]
         b_next_basic_var_coef = self.b / next_basic_var_coef
-        return np.argmin(b_next_basic_var_coef[b_next_basic_var_coef > 0])
+        rate = 1 << 64
+        res_ind = 0
+        for row in range(self.m):
+            if rate > b_next_basic_var_coef[row] and b_next_basic_var_coef[row] > 0:
+                rate = b_next_basic_var_coef[row]
+                res_ind = row
+        return res_ind
+
+    def reduce_rows(self) -> None:
+        """
+        Notes
+        ---------
+        基底変数と非基底変数の入れ替えを行う
+        """
+        next_basic_var = self.get_next_basic_var()
+        next_nonbasic_var = self.get_next_nonbasic_var()
+        # print(next_nonbasic_var, next_basic_var)
+        self.b[next_nonbasic_var] /= self.A[next_nonbasic_var, next_basic_var]
+        self.A[next_nonbasic_var] /= self.A[next_nonbasic_var, next_basic_var]
+        self.return_val += self.b[next_nonbasic_var] * self.c[next_basic_var]
+        self.c -= self.A[next_nonbasic_var] * self.c[next_basic_var]
+        for row in range(self.m):
+            if row != next_nonbasic_var:
+                self.b[row] -= self.b[next_nonbasic_var] * self.A[row, next_basic_var]
+                self.A[row] -= self.A[next_nonbasic_var] * self.A[row, next_basic_var]
+
+    def solve(self):
+        self.determine_basic_vars()
+        while not self.is_optimized():
+            self.reduce_rows()
+            print("value: ", self.return_val)
+        return self.return_val
 
 if __name__ == "__main__":
-    A = np.array([[5, 2, 1, 0, 0], [1, 2, 0, 1, 0], [5, -4, 0, 0, 1]])
-    b = np.array([30, 14, 15])
-    c = np.array([-5, -4, 0, 0, 0])
+    # ex 1 (value: -40)
+    # A = np.array([[5, 2, 1, 0, 0], [1, 2, 0, 1, 0], [5, -4, 0, 0, 1]], dtype=float)
+    # b = np.array([30, 14, 15], dtype=float)
+    # c = np.array([-5, -4, 0, 0, 0], dtype=float)
+
+    # ex 2 (value: -40)
+    # A = np.array([[5, 2, 1, 0], [1, 2, 0, 1]], dtype=float)
+    # b = np.array([30, 14], dtype=float)
+    # c = np.array([-5, -4, 0, 0], dtype=float)
+
+    # ex 3 (value: -266.25)
+    A = np.array([[2, 10, 4, 1, 0, 0], [6, 5, 8, 0, 1, 0], [7, 10, 8, 0, 0, 1]], dtype=float)
+    b = np.array([425, 400, 600], dtype=float)
+    c = np.array([-2.5, -5, -3.4, 0, 0, 0], dtype=float)
     simplexsolver = SimplexSolver(A, b, c)
-    simplexsolver.determine_basic_vars()
-    # print(simplexsolver.is_optimized())
-    # print(simplexsolver.basis_matrix)
-    # print(simplexsolver.A)
-    simplexsolver.get_next_basic_var()
-    print(simplexsolver.get_next_nonbasic_var())
+    print(simplexsolver.solve())
+    
